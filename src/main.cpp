@@ -3,10 +3,38 @@
 #include <cstdlib>
 #include <cmath>
 #include <vector>
+#include <random>
 
 #include <ipp.h>
 
 const double Umax = 32767.0; //32767;
+
+int add_normal_distribution(Ipp32fc* data, double size, double SNR)
+{
+    std::random_device rd{};
+    std::mt19937 gen{rd()};
+
+    float sum_signal = 0.0;
+
+    for (size_t i = 0; i < size; i++)
+    {
+        sum_signal += std::pow(data[i].re, 2);
+    }
+
+    double sigma_signal = sum_signal / size;
+
+    double sigma_noise = sigma_signal / (std::pow(10, SNR / 10.0));
+
+    std::normal_distribution<double> dist{0, sigma_noise};
+
+    for (size_t i = 0; i < size; i++)
+    {
+        data[i].re = data[i].re + dist(gen);
+        data[i].im = data[i].im + dist(gen);
+    }
+
+    return 0;
+}
 
 int main(int argc, char const *argv[])
 {
@@ -20,17 +48,21 @@ int main(int argc, char const *argv[])
     std::ofstream lfm_int16_shift_re("lfm_int16_shift_re.dat", std::ios_base::out | std::ios_base::binary);
     std::ofstream lfm_int16_shift_im("lfm_int16_shift_im.dat", std::ios_base::out | std::ios_base::binary);
 
-    // Для лабораторного практикума - ЛЧМ
-    std::ofstream lfm_re("lfm_re.dat", std::ios_base::out | std::ios_base::binary);
-    std::ofstream lfm_im("lfm_im.dat", std::ios_base::out | std::ios_base::binary);
+    // Для лабораторного практикума - ЛЧМ - опорная функция
+    std::ofstream lfm_re("C:/lab_fpga/lab_fpga/Synopsis/data/third-party/lfm_re.dat", std::ios_base::out | std::ios_base::binary);
+    std::ofstream lfm_im("C:/lab_fpga/lab_fpga/Synopsis/data/third-party/lfm_im.dat", std::ios_base::out | std::ios_base::binary);
 
     // Для лабораторного практикума - сдвинутый ЛЧМ сигнал
-    std::ofstream lfm_shift_re("lfm_shift_re.dat", std::ios_base::out | std::ios_base::binary);
-    std::ofstream lfm_shift_im("lfm_shift_im.dat", std::ios_base::out | std::ios_base::binary);
+    std::ofstream lfm_shift_re("C:/lab_fpga/lab_fpga/Synopsis/data/third-party/lfm_shift_re.dat", std::ios_base::out | std::ios_base::binary);
+    std::ofstream lfm_shift_im("C:/lab_fpga/lab_fpga/Synopsis/data/third-party/lfm_shift_im.dat", std::ios_base::out | std::ios_base::binary);
+
+    // Для лабораторного практикума - сдвинутый ЛЧМ сигнал с шумом
+    std::ofstream lfm_shift_noise_re("C:/lab_fpga/lab_fpga/Synopsis/data/third-party/lfm_shift_noise_re.dat", std::ios_base::out | std::ios_base::binary);
+    std::ofstream lfm_shift_noise_im("C:/lab_fpga/lab_fpga/Synopsis/data/third-party/lfm_shift_noise_im.dat", std::ios_base::out | std::ios_base::binary);
 
     // Для лабораторного практикума - результат корреляции
-    std::ofstream correl_re("correl_re.dat", std::ios_base::out | std::ios_base::binary);
-    std::ofstream correl_im("correl_im.dat", std::ios_base::out | std::ios_base::binary);
+    std::ofstream correl_re("C:/lab_fpga/lab_fpga/Synopsis/data/third-party/correl_re.dat", std::ios_base::out | std::ios_base::binary);
+    std::ofstream correl_im("C:/lab_fpga/lab_fpga/Synopsis/data/third-party/correl_im.dat", std::ios_base::out | std::ios_base::binary);
 
     double freqDev = 10000000;
     double samplingFrequency = 100000000;
@@ -115,6 +147,8 @@ int main(int argc, char const *argv[])
         lfm_int16_im << pf_im[0];
     }
 
+    //add_normal_distribution(data_shift, fft_len, 40);
+
     for (size_t i = 0; i < fft_len; i++)
     {
         int16_t tempRe_int16 = data_shift[i].re;
@@ -128,6 +162,12 @@ int main(int argc, char const *argv[])
 
         lfm_int16_shift_im << pf_im[1];
         lfm_int16_shift_im << pf_im[0];
+    }
+
+    for (size_t i = 0; i < fft_len; i++)
+    {
+        lfm_shift_noise_re << i << '\t' << data_shift[i].re << std::endl;
+        lfm_shift_noise_im << i << '\t' << data_shift[i].im << std::endl;
     }
 
     ippsFFTFwd_CToC_32fc(data, data, pSpec, pDFTWorkBuf);
