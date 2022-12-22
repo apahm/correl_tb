@@ -29,8 +29,19 @@ int add_normal_distribution(Ipp32fc* data, double size, double SNR)
 
     for (size_t i = 0; i < size; i++)
     {
-        data[i].re = data[i].re + dist(gen);
-        data[i].im = data[i].im + dist(gen);
+        data[i].re = data[i].re + (int16_t)dist(gen);
+        
+        if (data[i].re > Umax)
+            data[i].re = Umax;
+        else if (data[i].re < -Umax)
+            data[i].re = -Umax;
+        
+        data[i].im = data[i].im + (int16_t)dist(gen);
+        
+        if (data[i].im > Umax)
+            data[i].im = Umax;
+        else if (data[i].im < -Umax)
+            data[i].im = -Umax;
     }
 
     return 0;
@@ -87,13 +98,14 @@ int main(int argc, char const *argv[])
     Ipp8u* pDFTWorkBuf = nullptr;
     IppsFFTSpec_C_32fc* pSpec = 0;
 
-    ippsFFTGetSize_C_32fc(size, IPP_NODIV_BY_ANY, ippAlgHintAccurate, &sizeDFTSpec, &sizeDFTInitBuf, &sizeDFTWorkBuf);
+    // IPP_NODIV_BY_ANY
+    ippsFFTGetSize_C_32fc(size, /*IPP_NODIV_BY_ANY*/IPP_NODIV_BY_ANY, ippAlgHintAccurate, &sizeDFTSpec, &sizeDFTInitBuf, &sizeDFTWorkBuf);
 
     pDFTSpec = ippsMalloc_8u(sizeDFTSpec);
     pDFTInitBuf = ippsMalloc_8u(sizeDFTInitBuf);
     pDFTWorkBuf = ippsMalloc_8u(sizeDFTWorkBuf);
     
-    ippsFFTInit_C_32fc(&pSpec, size, IPP_NODIV_BY_ANY, ippAlgHintAccurate, pDFTSpec, pDFTInitBuf);
+    ippsFFTInit_C_32fc(&pSpec, size,/*IPP_NODIV_BY_ANY*/ IPP_NODIV_BY_ANY, ippAlgHintAccurate, pDFTSpec, pDFTInitBuf);
 
     data = ippsMalloc_32fc(fft_len);
     data_shift = ippsMalloc_32fc(fft_len);
@@ -147,7 +159,7 @@ int main(int argc, char const *argv[])
         lfm_int16_im << pf_im[0];
     }
 
-    //add_normal_distribution(data_shift, fft_len, 40);
+    add_normal_distribution(data_shift, fft_len, 40);
 
     for (size_t i = 0; i < fft_len; i++)
     {

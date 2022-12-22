@@ -11,6 +11,9 @@ wire           S_AXIS_IM_tready;
 wire           S_AXIS_RE_tready;
 wire           S_AXIS_SF_tready;
 
+wire           SF_IM_tready;
+wire           SF_RE_tready;
+
 reg [15:0]     FFT_CONFIG_tdata_reg;
 reg            FFT_CONFIG_tvalid_reg;
 
@@ -27,6 +30,12 @@ reg            S_AXIS_RE_tvalid_reg;
 
 reg [63:0]     S_AXIS_SF_tdata_reg;
 reg            S_AXIS_SF_tvalid_reg;
+
+reg [15:0]     SF_RE_tdata_reg;
+reg [15:0]     SF_IM_tdata_reg;
+
+reg            SF_RE_tvalid_reg;
+reg            SF_IM_tvalid_reg;
 
 
 design_1_wrapper
@@ -61,13 +70,13 @@ design_1_wrapper_inst
    .S_AXIS_RE_tvalid(S_AXIS_RE_tvalid_reg),
    .S_AXIS_RE_tready(S_AXIS_RE_tready),
     
-   .SF_IM_tdata(SF_IM_tdata),
+   .SF_IM_tdata(SF_IM_tdata_reg),
    .SF_IM_tready(SF_IM_tready),
-   .SF_IM_tvalid(SF_IM_tvalid),
+   .SF_IM_tvalid(SF_IM_tvalid_reg),
    
-   .SF_RE_tdata(SF_RE_tdata),
+   .SF_RE_tdata(SF_RE_tdata_reg),
    .SF_RE_tready(SF_RE_tready),
-   .SF_RE_tvalid(SF_RE_tvalid),
+   .SF_RE_tvalid(SF_RE_tvalid_reg),
 
    .aclk(aclk_reg),
    .aresetn(aresetn_reg)
@@ -126,6 +135,11 @@ initial begin
    FFT_CONFIG_tvalid_reg = 1'b0;
    IFFT_CONFIG_tdata_reg = 24'b0;
    IFFT_CONFIG_tvalid_reg = 1'b0;
+
+   SF_IM_tvalid_reg = 0;
+   SF_RE_tvalid_reg = 0;
+   SF_RE_tdata_reg = 16'b0;
+   SF_IM_tdata_reg = 16'b0;
    #100;
    aresetn_reg = 1;
    #250;
@@ -148,38 +162,33 @@ initial begin
    @(posedge aclk_reg);
    IFFT_CONFIG_tvalid_reg = 1'b0;
 
-   // Задаём опорную функцию
-   //wait(S_AXIS_SF_tready);
-   @(posedge aclk_reg);
-   #9.9;
-   S_AXIS_SF_tvalid_reg = 1;
-   for (integer i = 0; i < 1023; i = i + 1) begin
-      @(posedge aclk_reg);
-      S_AXIS_SF_tdata_reg = {lfm_re_reg[i], lfm_im_reg[i]};   
-   end
-   @(posedge aclk_reg); 
-   S_AXIS_SF_tdata_reg = S_AXIS_SF_tdata_reg + 1; 
-   #9.9;
-   S_AXIS_SF_tvalid_reg = 0;
-   S_AXIS_SF_tdata_reg = 0;
-
+   // Задаём опорную функцию для сжатия
    // Задаём принятый сигнал для сжатия
+
+   wait(SF_RE_tready);
+   wait(SF_IM_tready);
    wait(S_AXIS_RE_tready);
    @(posedge aclk_reg);
    #9.9;
+   SF_RE_tdata_reg = lfm_re_int16_reg[0];
+   SF_IM_tdata_reg = lfm_im_int16_reg[0];
+   S_AXIS_RE_tdata_reg = lfm_re_shift_reg[0];
+   S_AXIS_IM_tdata_reg = lfm_im_shift_reg[0]; 
+   SF_IM_tvalid_reg = 1;
+   SF_RE_tvalid_reg = 1;
    S_AXIS_RE_tvalid_reg = 1;
-   for (integer i = 0; i < 1023; i = i + 1) begin
+   @(posedge aclk_reg);
+   for (integer i = 1; i < 1024; i = i + 1) begin
       @(posedge aclk_reg);
-      S_AXIS_RE_tdata_reg = lfm_re_int16_reg[i];
-      S_AXIS_IM_tdata_reg = lfm_im_int16_reg[i];
+      SF_RE_tdata_reg = lfm_re_int16_reg[i];
+      SF_IM_tdata_reg = lfm_im_int16_reg[i];
+      S_AXIS_RE_tdata_reg = lfm_re_shift_reg[i];
+      S_AXIS_IM_tdata_reg = lfm_im_shift_reg[i]; 
    end
-   @(posedge aclk_reg); 
-   S_AXIS_RE_tlast_reg = 1;
-   S_AXIS_RE_tdata_reg = S_AXIS_RE_tdata_reg + 1; 
-   #9.9;
-   S_AXIS_RE_tlast_reg = 0;
+   #9.9;   
+   SF_RE_tvalid_reg = 0;
+   SF_IM_tvalid_reg = 0;
    S_AXIS_RE_tvalid_reg = 0;
-   S_AXIS_RE_tdata_reg = 0;
 
    $display("TEST PASSED");
 end
