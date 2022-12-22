@@ -51,14 +51,10 @@ design_1_wrapper_inst
    .IFFT_CONFIG_tready(IFFT_CONFIG_tready),
    .IFFT_CONFIG_tvalid(IFFT_CONFIG_tvalid_reg),
 
-   .M_AXIS_IM_tdata(),
-   .M_AXIS_IM_tready(1'b1),
-   .M_AXIS_IM_tvalid(),
-   
-   .M_AXIS_RE_tdata(),
-   .M_AXIS_RE_tlast(),
-   .M_AXIS_RE_tready(1'b1),
-   .M_AXIS_RE_tvalid(),
+   .M_AXIS_DATA_tdata(),
+   .M_AXIS_DATA_tlast(),
+   .M_AXIS_DATA_tready(1'b1),
+   .M_AXIS_DATA_tvalid(),
    
    .S_AXIS_IM_tdata(S_AXIS_IM_tdata_reg),
    .S_AXIS_IM_tlast(S_AXIS_IM_tlast_reg),
