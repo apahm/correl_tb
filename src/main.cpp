@@ -9,10 +9,27 @@
 
 const double Umax = 32767.0; //32767;
 
-int add_normal_distribution(Ipp32fc* data, double size, double SNR)
+int add_normal_distribution(Ipp32fc* data, double size, double SNR, double attenuator)
 {
     std::random_device rd{};
     std::mt19937 gen{rd()};
+
+    for (size_t i = 0; i < size; i++)
+    {
+        data[i].re = attenuator * data[i].re;
+
+        if (data[i].re > Umax)
+            data[i].re = Umax;
+        else if (data[i].re < -Umax)
+            data[i].re = -Umax;
+
+        data[i].im = attenuator * data[i].im;
+
+        if (data[i].im > Umax)
+            data[i].im = Umax;
+        else if (data[i].im < -Umax)
+            data[i].im = -Umax;
+    }
 
     float sum_signal = 0.0;
 
@@ -25,23 +42,33 @@ int add_normal_distribution(Ipp32fc* data, double size, double SNR)
 
     double sigma_noise = sigma_signal / (std::pow(10, SNR / 10.0));
 
-    std::normal_distribution<double> dist{0, sigma_noise};
+    std::normal_distribution<double> dist{0, std::sqrt(sigma_noise)};
 
     for (size_t i = 0; i < size; i++)
     {
-        data[i].re = data[i].re + (int16_t)dist(gen);
-        
-        if (data[i].re > Umax)
-            data[i].re = Umax;
-        else if (data[i].re < -Umax)
-            data[i].re = -Umax;
-        
-        data[i].im = data[i].im + (int16_t)dist(gen);
-        
-        if (data[i].im > Umax)
-            data[i].im = Umax;
-        else if (data[i].im < -Umax)
-            data[i].im = -Umax;
+        data[i].re = data[i].re + dist(gen);
+        data[i].im = data[i].im + dist(gen);
+    }
+
+    float max_re = 0.0;
+    float max_im = 0.0;
+
+    for (size_t i = 1; i < size; i++)
+    {
+        if (data[i].re > max_re)
+            max_re = data[i].re;
+    }
+
+    for (size_t i = 1; i < size; i++)
+    {
+        if (data[i].im > max_im)
+            max_im = data[i].im;
+    }
+
+    for (size_t i = 0; i < size; i++)
+    {
+        data[i].re = Umax * (data[i].re / max_re);
+        data[i].im = Umax * (data[i].im / max_im);
     }
 
     return 0;
@@ -59,6 +86,7 @@ int main(int argc, char const *argv[])
     std::ofstream lfm_int16_shift_re("lfm_int16_shift_re.dat", std::ios_base::out | std::ios_base::binary);
     std::ofstream lfm_int16_shift_im("lfm_int16_shift_im.dat", std::ios_base::out | std::ios_base::binary);
 
+#ifdef LAB_WORK_PATH
     // Для лабораторного практикума - ЛЧМ - опорная функция
     std::ofstream lfm_re("C:/lab_fpga/lab_fpga/Synopsis/data/third-party/lfm_re.dat", std::ios_base::out | std::ios_base::binary);
     std::ofstream lfm_im("C:/lab_fpga/lab_fpga/Synopsis/data/third-party/lfm_im.dat", std::ios_base::out | std::ios_base::binary);
@@ -74,7 +102,23 @@ int main(int argc, char const *argv[])
     // Для лабораторного практикума - результат корреляции
     std::ofstream correl_re("C:/lab_fpga/lab_fpga/Synopsis/data/third-party/correl_re.dat", std::ios_base::out | std::ios_base::binary);
     std::ofstream correl_im("C:/lab_fpga/lab_fpga/Synopsis/data/third-party/correl_im.dat", std::ios_base::out | std::ios_base::binary);
+#else
+    // Для лабораторного практикума - ЛЧМ - опорная функция
+    std::ofstream lfm_re("lfm_re.dat", std::ios_base::out | std::ios_base::binary);
+    std::ofstream lfm_im("lfm_im.dat", std::ios_base::out | std::ios_base::binary);
 
+    // Для лабораторного практикума - сдвинутый ЛЧМ сигнал
+    std::ofstream lfm_shift_re("lfm_shift_re.dat", std::ios_base::out | std::ios_base::binary);
+    std::ofstream lfm_shift_im("lfm_shift_im.dat", std::ios_base::out | std::ios_base::binary);
+
+    // Для лабораторного практикума - сдвинутый ЛЧМ сигнал с шумом
+    std::ofstream lfm_shift_noise_re("lfm_shift_noise_re.dat", std::ios_base::out | std::ios_base::binary);
+    std::ofstream lfm_shift_noise_im("lfm_shift_noise_im.dat", std::ios_base::out | std::ios_base::binary);
+
+    // Для лабораторного практикума - результат корреляции
+    std::ofstream correl_re("correl_re.dat", std::ios_base::out | std::ios_base::binary);
+    std::ofstream correl_im("correl_im.dat", std::ios_base::out | std::ios_base::binary);
+#endif
     double freqDev = 10000000;
     double samplingFrequency = 100000000;
     double signalDuration = 4 / 1000000.0;
@@ -159,7 +203,7 @@ int main(int argc, char const *argv[])
         lfm_int16_im << pf_im[0];
     }
 
-    add_normal_distribution(data_shift, fft_len, 40);
+    add_normal_distribution(data_shift, fft_len, -10, 1);
 
     for (size_t i = 0; i < fft_len; i++)
     {
