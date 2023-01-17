@@ -9,6 +9,87 @@
 
 const double Umax = 32767.0; //32767;
 
+int MakeMSequence(std::vector<int> poly)
+{
+    int k = poly.size();
+
+    int N = std::pow(2, k) - 1;
+
+    std::vector<std::vector<int>> matrix(k, std::vector<int>(k));
+
+    matrix[0][k-1] = poly[0];
+   
+    for (int r = 1; r < k; r++)
+    {
+        matrix[r][r-1] = 1;
+        matrix[r][k-1] = poly[r];
+    }
+    
+    std::vector<int> X(k,0);
+    X[0] = 1;
+    
+    std::vector<std::vector<int>> C(N, std::vector<int>(k));
+    C[0][0] = 1;
+    
+    std::vector<int> Xtmp(k, 0);
+    int j = 1;
+    
+    while (j < N)
+    {
+
+        for (int r = 0; r < k; r++)
+        {
+            Xtmp[r] = 0;
+            for (int c = 0; c < k; c++)
+                Xtmp[r] += matrix[r][c] * X[c];
+        }
+        for (int r = 0; r < k; r++)
+        {
+            X[r] = Xtmp[r] % 2;
+            C[j][r] = X[r];
+        }
+        j++;
+    }
+
+    std::vector<int> res(N, 0);
+    for (int r = 0; r < N; r++)
+    {
+        res[r] = 2 * C[r][0] - 1;
+        std::cout << res[r] << std::endl;
+    }
+        
+    
+    return 0;
+}
+
+int MakePolynom(std::vector<int> &poly, int max_degree)
+{
+    /*
+        f(x) = x^13 + x^5 + x^2 + x + 1;
+        N = 8191
+    */
+    if (max_degree == 13)
+    {
+        poly.push_back(1);
+        poly.push_back(1);
+        poly.push_back(1);
+        poly.push_back(0);
+        poly.push_back(0);
+        poly.push_back(1);
+        poly.push_back(0);
+        poly.push_back(0);
+        poly.push_back(0);
+        poly.push_back(0);
+        poly.push_back(0);
+        poly.push_back(0);
+        poly.push_back(0);
+        poly.push_back(1);
+    }
+
+
+    return 0;
+}
+
 int add_normal_distribution(Ipp32fc* data, double size, double SNR, double attenuator)
 {
     std::random_device rd{};
@@ -74,8 +155,14 @@ int add_normal_distribution(Ipp32fc* data, double size, double SNR, double atten
     return 0;
 }
 
+
 int main(int argc, char const *argv[])
 {
+    std::vector<int> poly;
+
+    MakePolynom(poly, 13);
+    MakeMSequence(poly);
+
     // std::ofstream lfm_float_re("lfm_re_float.dat", std::ios_base::out | std::ios_base::binary);
     // std::ofstream lfm_float_im("lfm_im_float.dat", std::ios_base::out | std::ios_base::binary);
 
