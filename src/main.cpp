@@ -4,16 +4,17 @@
 #include <cmath>
 #include <vector>
 #include <random>
-
+#include <string>
 #include <ipp.h>
 
 const double Umax = 32767.0; //32767;
+const double Umin = -32768.0;
 
-int MakeMSequence(std::vector<int> poly)
+int MakeMSequence(std::vector<int> poly, std::vector<int>& res)
 {
-    int k = poly.size();
+    int k = poly.size() - 1;
 
-    int N = std::pow(2, k) - 1;
+    uint32_t N = std::pow(2, k) - 1;
 
     std::vector<std::vector<int>> matrix(k, std::vector<int>(k));
 
@@ -51,13 +52,10 @@ int MakeMSequence(std::vector<int> poly)
         j++;
     }
 
-    std::vector<int> res(N, 0);
     for (int r = 0; r < N; r++)
     {
-        res[r] = 2 * C[r][0] - 1;
-        std::cout << res[r] << std::endl;
+        res.push_back(2 * C[r][0] - 1);
     }
-        
     
     return 0;
 }
@@ -85,7 +83,68 @@ int MakePolynom(std::vector<int> &poly, int max_degree)
         poly.push_back(0);
         poly.push_back(1);
     }
-
+    /*
+    f(x) = x^10 + x^3 + 1;
+    N = 1023
+    */
+    else if (max_degree == 10)
+    {
+        poly.push_back(1);
+        poly.push_back(0);
+        poly.push_back(0);
+        poly.push_back(1);
+        poly.push_back(0);
+        poly.push_back(0);
+        poly.push_back(0);
+        poly.push_back(0);
+        poly.push_back(0);
+        poly.push_back(1);
+    }
+    /*
+    f(x) = x^8 + x^7 + x^2 + x + 1;
+    N = 255
+    */
+    else if (max_degree == 8)
+    {
+        poly.push_back(1);
+        poly.push_back(1);
+        poly.push_back(1);
+        poly.push_back(0);
+        poly.push_back(0);
+        poly.push_back(0);
+        poly.push_back(0);
+        poly.push_back(1);
+        poly.push_back(1);
+    }
+    /*
+    f(x) = x^7 + x + 1;
+    N = 127
+    */
+    else if (max_degree == 7)
+    {
+        poly.push_back(1);
+        poly.push_back(1);
+        poly.push_back(0);
+        poly.push_back(0);
+        poly.push_back(0);
+        poly.push_back(0);
+        poly.push_back(0);
+        poly.push_back(1);
+    }
+    /*
+    f(x) = x^6 + x + 1;
+    N = 127
+    */
+    else if (max_degree == 6)
+    {
+        poly.push_back(1);
+        poly.push_back(1);
+        poly.push_back(0);
+        poly.push_back(0);
+        poly.push_back(0);
+        poly.push_back(0);
+        poly.push_back(1);
+    }
 
     return 0;
 }
@@ -155,18 +214,8 @@ int add_normal_distribution(Ipp32fc* data, double size, double SNR, double atten
     return 0;
 }
 
-
-int main(int argc, char const *argv[])
+int create_file_for_lab_work()
 {
-    std::vector<int> poly;
-
-    MakePolynom(poly, 13);
-    MakeMSequence(poly);
-
-    // std::ofstream lfm_float_re("lfm_re_float.dat", std::ios_base::out | std::ios_base::binary);
-    // std::ofstream lfm_float_im("lfm_im_float.dat", std::ios_base::out | std::ios_base::binary);
-
-    // Для симулятора в Vivado 
     std::ofstream lfm_int16_re("lfm_re_int16.dat", std::ios_base::out | std::ios_base::binary);
     std::ofstream lfm_int16_im("lfm_im_int16.dat", std::ios_base::out | std::ios_base::binary);
 
@@ -235,7 +284,7 @@ int main(int argc, char const *argv[])
     pDFTSpec = ippsMalloc_8u(sizeDFTSpec);
     pDFTInitBuf = ippsMalloc_8u(sizeDFTInitBuf);
     pDFTWorkBuf = ippsMalloc_8u(sizeDFTWorkBuf);
-    
+
     ippsFFTInit_C_32fc(&pSpec, size,/*IPP_NODIV_BY_ANY*/ IPP_NODIV_BY_ANY, ippAlgHintAccurate, pDFTSpec, pDFTInitBuf);
 
     data = ippsMalloc_32fc(fft_len);
@@ -346,7 +395,7 @@ int main(int argc, char const *argv[])
     ippsMul_32fc(data, data_shift, correl, fft_len);
 
     ippsFFTInv_CToC_32fc(correl, correl, pSpec, pDFTWorkBuf);
-    
+
 
     for (size_t i = 0; i < fft_len; i++)
     {
@@ -362,6 +411,317 @@ int main(int argc, char const *argv[])
     ippsFree(pDFTSpec);
     ippsFree(pDFTInitBuf);
     ippsFree(pDFTWorkBuf);
+    
+    return 0;
+}
+
+int MakeLFMCenterFreq(double freqDev, double samplingFrequency, double center_freq, double signalDuration, double fi, std::vector<int16_t>& LFM)
+{
+    /*
+    * std::vector<int16_t> LFM;
+    double freqDev = 500'000'000;
+    double samplingFrequency = 1'000'000'000;
+    double center_freq = 250'000'000;
+    double signalDuration = 4 / 1000000.0;
+    double fi = 0;
+
+    MakeLFMCenterFreq(freqDev, samplingFrequency, center_freq, signalDuration, 0, LFM);
+    */
+
+    double lengthEtalonSignal = signalDuration * samplingFrequency;
+    for (int i = 0; i < lengthEtalonSignal; ++i)
+    {
+        double samplingT = (double)i / (double)samplingFrequency - (double)signalDuration / 2.0;
+
+        int16_t temp = round(Umax * cos(2.0 * M_PI * (double)center_freq * samplingT + 2.0 * M_PI * (double)freqDev * samplingT * samplingT / (double)signalDuration));
+        if (temp > Umax)
+            temp = Umax;
+        else if (temp < -Umax)
+            temp = -Umax;
+
+        LFM.push_back(temp);
+    }
+    return 0;
+}
+
+enum class CSVState {
+    UnquotedField,
+    QuotedField,
+    QuotedQuote
+};
+
+std::vector<std::string> readCSVRow(const std::string& row) {
+    CSVState state = CSVState::UnquotedField;
+    std::vector<std::string> fields{ "" };
+    size_t i = 0; // index of the current field
+    for (char c : row) {
+        switch (state) {
+        case CSVState::UnquotedField:
+            switch (c) {
+            case ',': // end of field
+                fields.push_back(""); i++;
+                break;
+            case '"': state = CSVState::QuotedField;
+                break;
+            default:  fields[i].push_back(c);
+                break;
+            }
+            break;
+        case CSVState::QuotedField:
+            switch (c) {
+            case '"': state = CSVState::QuotedQuote;
+                break;
+            default:  fields[i].push_back(c);
+                break;
+            }
+            break;
+        case CSVState::QuotedQuote:
+            switch (c) {
+            case ',': // , after closing quote
+                fields.push_back(""); i++;
+                state = CSVState::UnquotedField;
+                break;
+            case '"': // "" -> "
+                fields[i].push_back('"');
+                state = CSVState::QuotedField;
+                break;
+            default:  // end of quote
+                state = CSVState::UnquotedField;
+                break;
+            }
+            break;
+        }
+    }
+    return fields;
+}
+
+std::vector<std::vector<std::string>> readCSV(std::istream& in) {
+    std::vector<std::vector<std::string>> table;
+    std::string row;
+    
+    while (!in.eof()) {
+        std::getline(in, row);
+        if (in.bad() || in.fail()) {
+            break;
+        }
+        auto fields = readCSVRow(row);
+        table.push_back(fields);
+    }
+    return table;
+}
+
+int parse_ila_data()
+{
+    std::ifstream hardware_manager("C:/IP/iladata.csv", std::ios_base::in | std::ios_base::binary);
+
+    std::vector<std::vector<std::string>> ila;
+
+    if (hardware_manager.is_open())
+    {
+        ila = readCSV(hardware_manager);
+    }
+
+    std::vector<int16_t> adc_0_data;
+    std::vector<int16_t> adc_1_data;
+
+    for (size_t i = 1; i < ila.size(); i++)
+    {
+        uint8_t sample_adc_0[8];
+        uint8_t sample_adc_1[8];
+
+        std::string sample_str_adc_0;
+        std::string sample_str_adc_1;
+
+        for (size_t j = 0; j < 8; j++)
+        {
+            sample_str_adc_0.append(&ila[i][3][j * 2], 2);
+            sample_str_adc_1.append(&ila[i][4][j * 2], 2);
+
+            sample_adc_0[j] = std::stoi(sample_str_adc_0, nullptr, 16);
+            sample_adc_1[j] = std::stoi(sample_str_adc_1, nullptr, 16);
+
+            sample_str_adc_0.clear();
+            sample_str_adc_1.clear();
+        }
+
+        int16_t sample_adc_0_0 = 0;
+        int16_t sample_adc_0_1 = 0;
+        int16_t sample_adc_0_2 = 0;
+        int16_t sample_adc_0_3 = 0;
+
+        std::memcpy((uint8_t*)(&sample_adc_0_3), &sample_adc_0[1], 1);
+        std::memcpy((((uint8_t*)(&sample_adc_0_3)) + 1), &sample_adc_0[0], 1);
+        std::memcpy((uint8_t*)(&sample_adc_0_2), &sample_adc_0[3], 1);
+        std::memcpy((((uint8_t*)(&sample_adc_0_2)) + 1), &sample_adc_0[2], 1);
+        std::memcpy((uint8_t*)(&sample_adc_0_1), &sample_adc_0[5], 1);
+        std::memcpy((((uint8_t*)(&sample_adc_0_1)) + 1), &sample_adc_0[4], 1);
+        std::memcpy((uint8_t*)(&sample_adc_0_0), &sample_adc_0[7], 1);
+        std::memcpy((((uint8_t*)(&sample_adc_0_0)) + 1), &sample_adc_0[6], 1);
+
+        int16_t sample_adc_1_0 = 0;
+        int16_t sample_adc_1_1 = 0;
+        int16_t sample_adc_1_2 = 0;
+        int16_t sample_adc_1_3 = 0;
+
+        std::memcpy((uint8_t*)(&sample_adc_1_3), &sample_adc_1[1], 1);
+        std::memcpy((((uint8_t*)(&sample_adc_1_3)) + 1), &sample_adc_1[0], 1);
+        std::memcpy((uint8_t*)(&sample_adc_1_2), &sample_adc_1[3], 1);
+        std::memcpy((((uint8_t*)(&sample_adc_1_2)) + 1), &sample_adc_1[2], 1);
+        std::memcpy((uint8_t*)(&sample_adc_1_1), &sample_adc_1[5], 1);
+        std::memcpy((((uint8_t*)(&sample_adc_1_1)) + 1), &sample_adc_1[4], 1);
+        std::memcpy((uint8_t*)(&sample_adc_1_0), &sample_adc_1[7], 1);
+        std::memcpy((((uint8_t*)(&sample_adc_1_0)) + 1), &sample_adc_1[6], 1);
+
+        adc_0_data.push_back(sample_adc_0_0);
+        adc_0_data.push_back(sample_adc_0_1);
+        adc_0_data.push_back(sample_adc_0_2);
+        adc_0_data.push_back(sample_adc_0_3);
+
+        adc_1_data.push_back(sample_adc_1_0);
+        adc_1_data.push_back(sample_adc_1_1);
+        adc_1_data.push_back(sample_adc_1_2);
+        adc_1_data.push_back(sample_adc_1_3);
+    }
+
+    std::ofstream adc_0("C:/lab_fpga/lab_fpga/Synopsis/data/third-party/adc_0.dat", std::ios_base::out | std::ios_base::binary);
+    std::ofstream adc_1("C:/lab_fpga/lab_fpga/Synopsis/data/third-party/adc_1.dat", std::ios_base::out | std::ios_base::binary);
+
+    for (size_t i = 0; i < ila.size(); i++)
+    {
+        adc_0 << i << '\t' << adc_0_data[i] << std::endl;
+        adc_1 << i << '\t' << adc_1_data[i] << std::endl;
+    }
+
+    return 0;
+}
+
+int MakeMSequenceIQRecv(uint32_t max_degree)
+{
+    std::vector<float> data_re;
+    std::vector<float> data_im;
+
+    std::ofstream m_seq_re_recv("C:/lab_fpga/Synopsis/data/third-party/m_seq_re_recv.dat", std::ios_base::out | std::ios_base::binary);
+    std::ofstream m_seq_im_recv("C:/lab_fpga/Synopsis/data/third-party/m_seq_im_recv.dat", std::ios_base::out | std::ios_base::binary);
+
+    uint32_t N = std::pow(2, max_degree) - 1;
+
+    std::vector<int> poly;
+    std::vector<int> m_seq;
+
+    MakePolynom(poly, max_degree);
+
+    MakeMSequence(poly, m_seq);
+
+    double freq_sample_rate = 400'000'000;
+    double duration_code_interval = 10 / 1'000'000'000.0;
+
+    uint32_t sample_per_coded_interval = duration_code_interval * freq_sample_rate;
+
+    for (size_t i = 0; i < 380; i++)
+    {
+        data_re.push_back(0);
+        data_im.push_back(0);
+    }
+
+    for (size_t i = 0; i < N; i++)
+    {
+        if (m_seq[i] == 1)
+        {
+            for (size_t j = 0; j < sample_per_coded_interval; j++)
+            {
+                data_re.push_back(Umax);
+                data_im.push_back(0);
+            }
+        }
+        else if (m_seq[i] == -1)
+        {
+            for (size_t j = 0; j < sample_per_coded_interval; j++)
+            {
+                data_re.push_back(Umin);
+                data_im.push_back(0);
+            }
+        }
+    }
+
+    for (size_t i = 0; i < 2048 - 380 - N* sample_per_coded_interval; i++)
+    {
+        data_re.push_back(0);
+        data_im.push_back(0);
+    }
+
+    for (size_t i = 0; i < data_re.size(); i++)
+    {
+        m_seq_re_recv << i << '\t' << data_re[i] << std::endl;
+        m_seq_im_recv << i << '\t' << data_im[i] << std::endl;
+    }
+
+    return 0;
+}
+
+int MakeMSequenceIQSuppFunc(uint32_t max_degree)
+{
+    std::vector<float> data_re;
+    std::vector<float> data_im;
+
+    std::ofstream m_seq_re_sf("C:/lab_fpga/Synopsis/data/third-party/m_seq_re_sf.dat", std::ios_base::out | std::ios_base::binary);
+    std::ofstream m_seq_im_sf("C:/lab_fpga/Synopsis/data/third-party/m_seq_im_sf.dat", std::ios_base::out | std::ios_base::binary);
+
+    uint32_t N = std::pow(2, max_degree) - 1;
+
+    std::vector<int> poly;
+    std::vector<int> m_seq;
+
+    MakePolynom(poly, max_degree);
+
+    MakeMSequence(poly, m_seq);
+
+    double freq_sample_rate = 400'000'000;
+    double duration_code_interval = 10 / 1'000'000'000.0;
+
+    uint32_t sample_per_coded_interval = duration_code_interval * freq_sample_rate;
+
+    for (size_t i = 0; i < N; i++)
+    {
+        if (m_seq[i] == 1)
+        {
+            for (size_t j = 0; j < sample_per_coded_interval; j++)
+            {
+                data_re.push_back(Umax);
+                data_im.push_back(0);
+            }
+        }
+        else if (m_seq[i] == -1)
+        {
+            for (size_t j = 0; j < sample_per_coded_interval; j++)
+            {
+                data_re.push_back(Umin);
+                data_im.push_back(0);
+            }
+        }
+    }
+
+    for (size_t i = 0; i < 2048 - N * sample_per_coded_interval; i++)
+    {
+        data_re.push_back(0);
+        data_im.push_back(0);
+    }
+
+    for (size_t i = 0; i < data_re.size(); i++)
+    {
+        m_seq_re_sf << i << '\t' << data_re[i] << std::endl;
+        m_seq_im_sf << i << '\t' << data_im[i] << std::endl;
+    }
+
+    return 0;
+}
+
+int main(int argc, char const *argv[])  
+{
+    uint32_t max_degree = 8;
+
+    MakeMSequenceIQRecv(max_degree);
+
+    MakeMSequenceIQSuppFunc(max_degree);
 
 	return 0;
 }
