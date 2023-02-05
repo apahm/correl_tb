@@ -415,32 +415,63 @@ int create_file_for_lab_work()
     return 0;
 }
 
-int MakeLFMCenterFreq(double freqDev, double samplingFrequency, double center_freq, double signalDuration, double fi, std::vector<int16_t>& LFM)
+int MakeLFMCenterFreq(double freqDev, double samplingFrequency, 
+                    double center_freq, double signalDuration, 
+                            double fi, std::vector<int16_t>& LFM, double sign)
 {
     /*
-    * std::vector<int16_t> LFM;
-    double freqDev = 500'000'000;
-    double samplingFrequency = 1'000'000'000;
-    double center_freq = 250'000'000;
-    double signalDuration = 4 / 1000000.0;
+    std::vector<int16_t> LFM;
+    double freqDev = 1'000'000;
+    double samplingFrequency = 100'000'000;
+    double center_freq = 1'500'000;
+    double signalDuration = 10 / 1000000.0;
     double fi = 0;
+    double sign = 1;
 
-    MakeLFMCenterFreq(freqDev, samplingFrequency, center_freq, signalDuration, 0, LFM);
+    MakeLFMCenterFreq(freqDev, samplingFrequency, center_freq, signalDuration, fi, LFM, sign);
     */
+    
+    std::ofstream lfm_freq("C:/lab_fpga/Synopsis/data/third-party/lfm_freq.dat", std::ios_base::out | std::ios_base::binary);
 
     double lengthEtalonSignal = signalDuration * samplingFrequency;
-    for (int i = 0; i < lengthEtalonSignal; ++i)
+
+    if (sign == 1)
     {
-        double samplingT = (double)i / (double)samplingFrequency - (double)signalDuration / 2.0;
+        for (int i = 0; i < lengthEtalonSignal; ++i)
+        {
+            double samplingT = (double)i / (double)samplingFrequency - (double)signalDuration / 2.0;
 
-        int16_t temp = round(Umax * cos(2.0 * M_PI * (double)center_freq * samplingT + 2.0 * M_PI * (double)freqDev * samplingT * samplingT / (double)signalDuration));
-        if (temp > Umax)
-            temp = Umax;
-        else if (temp < -Umax)
-            temp = -Umax;
+            double phase = 2.0 * M_PI * (double)center_freq * samplingT + (2.0 * M_PI * (double)freqDev * samplingT * samplingT / (double)signalDuration);
 
-        LFM.push_back(temp);
+            int16_t temp = round(Umax * cos(2.0 * M_PI * (double)center_freq * samplingT + (2.0 * M_PI * (double)freqDev * samplingT * samplingT / (double)signalDuration)));
+            if (temp > Umax)
+                temp = Umax;
+            else if (temp < -Umax)
+                temp = -Umax;
+
+            LFM.push_back(temp);
+            lfm_freq << i << '\t' << temp << std::endl;
+        }
     }
+    else if (sign == -1)
+    {
+        for (int i = 0; i < lengthEtalonSignal; ++i)
+        {
+            double samplingT = (double)i / (double)samplingFrequency - (double)signalDuration / 2.0;
+
+            double phase = 2.0 * M_PI * (double)center_freq * samplingT + (2.0 * M_PI * (double)freqDev * samplingT * samplingT / (double)signalDuration);
+
+            int16_t temp = round(Umax * cos(2.0 * M_PI * (double)center_freq * samplingT - (2.0 * M_PI * (double)freqDev * samplingT * samplingT / (double)signalDuration)));
+            if (temp > Umax)
+                temp = Umax;
+            else if (temp < -Umax)
+                temp = -Umax;
+
+            LFM.push_back(temp);
+            lfm_freq << i << '\t' << temp << std::endl;
+        }
+    }
+
     return 0;
 }
 
@@ -712,6 +743,12 @@ int MakeMSequenceIQSuppFunc(uint32_t max_degree, std::vector<float> &data_re, st
 
 int main(int argc, char const *argv[])  
 {
+
+
+    // ƒл€ лабораторного практикума - результат коррел€ции
+    std::ofstream correl_re("C:/lab_fpga/Synopsis/data/third-party/correl_re_m_seq.dat", std::ios_base::out | std::ios_base::binary);
+    std::ofstream correl_im("C:/lab_fpga/Synopsis/data/third-party/correl_im_m_seq.dat", std::ios_base::out | std::ios_base::binary);
+
     uint32_t max_degree = 8;
 
     std::vector<float> data_re_recv;
@@ -764,7 +801,7 @@ int main(int argc, char const *argv[])
         data_shift[i].im = data_im_recv[i];
     }
 
-    add_normal_distribution(data_shift, fft_len, -10, 1);
+    //add_normal_distribution(data_shift, fft_len, -10, 1);
 
     ippsFFTFwd_CToC_32fc(data, data, pSpec, pDFTWorkBuf);
 
@@ -781,6 +818,17 @@ int main(int argc, char const *argv[])
     ippsMul_32fc(data, data_shift, correl, fft_len);
 
     ippsFFTInv_CToC_32fc(correl, correl, pSpec, pDFTWorkBuf);
+
+    for (size_t i = 0; i < fft_len; i++)
+    {
+        correl_re << i << '\t' << correl[i].re << std::endl;
+    }
+
+    for (size_t i = 0; i < fft_len; i++)
+    {
+        correl_im << i << '\t' << correl[i].im << std::endl;
+    }
+
 
     ippsFree(data);
     ippsFree(pDFTSpec);
