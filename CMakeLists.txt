@@ -39,7 +39,13 @@ target_compile_definitions(spRLI PRIVATE
 )
 
 target_sources(spRLI PRIVATE
-    src/main.cpp
+    src/sampa_main.c
+    src/sampa.c
+    src/sampa.h
+    src/spa.c
+    src/spa.h
+    src/bird.c
+    src/bird.h
 )
 
 target_include_directories(spRLI PRIVATE  
